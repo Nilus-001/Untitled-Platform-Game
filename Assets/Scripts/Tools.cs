@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Global {
@@ -6,5 +5,9 @@ namespace Global {
         public static float GetAngleByVector(Vector2 vector) {
             return Vector2.Angle( Vector2.up , vector ) * -Mathf.Sign( vector.x );
         }
+        
+
+        
+
     }
 }
