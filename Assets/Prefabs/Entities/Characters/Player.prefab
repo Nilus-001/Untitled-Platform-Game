@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4532876820895471130}
+  - component: {fileID: 5030365805481755129}
   - component: {fileID: 7802198496954273155}
   - component: {fileID: 4364752791948576071}
   - component: {fileID: 8780714847869416431}
@@ -37,6 +38,21 @@ Transform:
   - {fileID: 2115832700311450441}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5030365805481755129
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1430032930636149292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abc178185aa7b0d4ab3f82d7e0728a9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerStats
+  maxHp: 3
+  invicibilityTime: 1
+  energyMax: 1
 --- !u!114 &7802198496954273155
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -52,6 +68,7 @@ MonoBehaviour:
   movementSpeed: 4
   jumpStrength: 9
   jumpDeceleration: 0.1
+  bonusJumpNumber: 1
   dashStrength: 15
   dashTime: 0.2
   dashCooldown: 1

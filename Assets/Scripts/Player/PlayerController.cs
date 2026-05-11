@@ -1,27 +1,27 @@
-
-using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 using Global;
-using UnityEditor.Experimental.GraphView;
+using System.Collections.Generic;
+
 
 public class PlayerController : MonoBehaviour{
     //~------------------------------------------------------------------ Variable --------------------------------------------------------------------
 
     [Header("--- Movements ---")]
-    [SerializeField] public float movementSpeed;
+    [SerializeField] private float movementSpeed;
 
     [Space(5)]
     [Header("  > Jump")]
-    [SerializeField] public float jumpStrength;
-    [SerializeField] public float jumpDeceleration;
-    
+    [SerializeField] private float jumpStrength;
+    [SerializeField] private float jumpDeceleration;
+    [SerializeField] private int bonusJumpNumber;
+
     [Space(5)]
     [Header("  > Dash")]
-    [SerializeField] public float dashStrength;
-    [SerializeField] public float dashTime;
+    [SerializeField] private float dashStrength;
+    [SerializeField] private float dashTime;
     [SerializeField] private float dashCooldown;
 
     [Space(5)]
@@ -31,26 +31,27 @@ public class PlayerController : MonoBehaviour{
     [SerializeField] private float garbExitStrength;
     [SerializeField] private float grabCooldown;
 
-
     [Space(10)]
     [Header("--- Capacities ---")]
 
     [SerializeField] private bool UpDash;
     [SerializeField] private bool UpDashRecovery;
 
-    
+    private List<ActionBuffer> InputBuffer =new List<ActionBuffer>();
     private Rigidbody2D playerRb;
     private Transform sprite;
-    private Transform grab;
-    private int moveDirection;
-    private Vector2 LeftJoyVector;
-    private bool doubleJump;
-    private int dash ;
-    private float dashCooldownValue;
     private float baseGravity;
+    private int moveDirection;
+    private int jump;
+
+    private int dash ;
+    private float dashCooldownTimer;
+    
+    private Transform grab;
     private Vector2 grabTargetDirection;
     private Vector2 grabTargetPos;
-    private float grabCooldownValue;
+    private float grabCooldownTimer;
+    private Vector2 LeftJoyVector;
 
     //* -------------------------------------------------------------------------------------------------- Detection // Status 
     private bool _isDashing;
@@ -70,16 +71,30 @@ public class PlayerController : MonoBehaviour{
         ResizedGrab();
     }
     private void Start(){
-        dashCooldownValue = 0;
+        dashCooldownTimer = 0;
+        grabCooldownTimer = 0;
+        jump = bonusJumpNumber;
     }
     private void Update(){
-        if (dashCooldownValue > 0) 
-            dashCooldownValue -= Time.deltaTime;
-        if (grabCooldownValue > 0)
-            grabCooldownValue -= Time.deltaTime;
+        if (dashCooldownTimer > 0) 
+            dashCooldownTimer -= Time.deltaTime;
+        if (grabCooldownTimer > 0)
+            grabCooldownTimer -= Time.deltaTime;
+
+        ActionBufferExecute();
 
         TextureInteraction();
-        UpDashRecoveryVerifier();
+
+        // print("---------------------------");
+        // foreach(ActionBuffer a in InputBuffer) {
+        //     print(a.action + " :: "+ a.VerifyValidity() );
+        // }
+
+        // print(grabCooldownTimer + " |: grab | " + dashCooldownTimer + " |: dash"); //! prov
+        // print("dash : "+_isDashing);
+        // print("jump : "+_isJumping);
+        // print("grab : "+_isGrabbing);
+        
         
     }
     private void FixedUpdate(){
@@ -87,7 +102,7 @@ public class PlayerController : MonoBehaviour{
         ExecuteGrab();
     }
 
-    private void KeepAndApplyPlayerGravity(float newVal = 0) {
+    private void KeepAndApplyPlayerGravity(float newVal = 0f) {
         float gravity = playerRb.gravityScale;
         if (gravity != 0) {
             baseGravity = gravity;
@@ -96,6 +111,46 @@ public class PlayerController : MonoBehaviour{
     }
     private void RestorePlayerGravity() {
         playerRb.gravityScale = baseGravity;
+    }
+    //* -------------------------------------------------------------------------------------------------- Action Buffer
+    private void ActionBufferExecute() {
+        if (InputBuffer.Count == 0) return;
+        foreach(ActionBuffer action in InputBuffer.ToArray()) {
+            if (action.VerifyValidity()) {
+                ExecuteBufferAction(action);
+                return;
+            }
+            else {
+                InputBuffer.Remove(action);  
+            }
+        }
+    }
+    //? ----------------------------------------------------------------------------------------- Action Condition 
+    private void ExecuteBufferAction(ActionBuffer action) {
+        if (action.action == ActionBuffer.ActionType.Jump) {
+            if (jump > 0 || _grounded) {
+                Jump();
+                InputBuffer.Remove(action);
+                return;
+            }
+        }
+
+        if (action.action == ActionBuffer.ActionType.Dash) {
+            if (dash > 0 && dashCooldownTimer <= 0) {
+                Dash().Forget();
+                InputBuffer.Remove(action);
+                return;
+            }
+        }
+
+        if (action.action == ActionBuffer.ActionType.Grab) {
+            if (grabCooldownTimer <= 0) {
+                TryGrab().Forget();
+                InputBuffer.Remove(action);
+                return;
+            }
+        }
+        
     }
 
 
@@ -121,8 +176,8 @@ public class PlayerController : MonoBehaviour{
     public void OnJump(InputAction.CallbackContext ctx) {
         if (_isDashing && !UpDash ) return;
 
-        if (ctx.started && doubleJump){
-            Jump();
+        if (ctx.started ){
+            InputBuffer.Add(new ActionBuffer(Time.time,ActionBuffer.ActionType.Jump));
         }
 
         if (ctx.canceled && playerRb.linearVelocityY > 5f){
@@ -134,23 +189,23 @@ public class PlayerController : MonoBehaviour{
     private void Jump(){
         _isJumping = true;
         if (!_grounded) {
-            doubleJump = false;
+            jump -= 1;
+            if (_isDashing && _isJumping && UpDashRecovery) jump += 1; //& UPDASH RECOVERY
         }
+        
         playerRb.linearVelocity = new Vector2(playerRb.linearVelocityX , jumpStrength);
+        
         
     }
     //? ----------------------------------------------------------------------------------------- Dash 
     public void OnDash(InputAction.CallbackContext ctx) {
         if (_isDashing ) return;
         if (ctx.started){
-            _isJumping = false;
-            Dash().Forget();
+            InputBuffer.Add(new ActionBuffer(Time.time,ActionBuffer.ActionType.Dash));
         }
     }
     private async UniTaskVoid Dash(){
-
-        if (dash < 1 || dashCooldownValue > 0 ) return;
-
+        _isJumping = false;
         _isDashing = true;
         KeepAndApplyPlayerGravity(0f);
 
@@ -162,24 +217,20 @@ public class PlayerController : MonoBehaviour{
         RestorePlayerGravity();
         if(!_grounded) dash -= 1;
         
-        dashCooldownValue = dashCooldown;   
+        dashCooldownTimer = dashCooldown;   
         _isDashing = false;
         
     }
-    private void UpDashRecoveryVerifier() {
-        if (_isDashing && _isJumping && !_grounded && UpDashRecovery) doubleJump = true;
-    }
+   
     //? ----------------------------------------------------------------------------------------- Grab 
     public void OnGrab(InputAction.CallbackContext ctx) {
         if (ctx.started) {
-            TryGrab().Forget();
+            InputBuffer.Add(new ActionBuffer(Time.time,ActionBuffer.ActionType.Grab));
         }
-        // if (ctx.canceled) {
-        //     _isGrabbing = false;
-        // }
+
     }
     private async UniTaskVoid TryGrab() {
-        if (grabCooldownValue > 0) return;
+        if (grabCooldownTimer > 0) return;
 
         float a = Tools.GetAngleByVector(LeftJoyVector);
         grab.rotation =  Quaternion.Euler(0,0,a);
@@ -189,6 +240,7 @@ public class PlayerController : MonoBehaviour{
         await UniTask.WaitForSeconds(0.2f);
         if (!_isGrabbing)
             grab.gameObject.SetActive(false);
+            grabCooldownTimer = grabCooldown;
 
     }
     
@@ -217,7 +269,7 @@ public class PlayerController : MonoBehaviour{
             _isGrabbing = false;
             grabTargetDirection = Vector2.zero;
             grabTargetPos = Vector2.zero;
-            grabCooldownValue = grabCooldown;
+            grabCooldownTimer = grabCooldown;
             
 
             return;
@@ -281,9 +333,38 @@ public class PlayerController : MonoBehaviour{
         }
     }
     private void GroundRecovery() {
-        doubleJump = true;
+        jump = bonusJumpNumber;
         dash = 1;
+        _isJumping = false;
     }
 
 }
 
+//~--------------------------------------------------------------------------------------------------------- Action Buffer
+public class ActionBuffer {
+    
+    public enum ActionType{
+        Jump,
+        Dash,
+        Grab,
+    }
+    public ActionType action;
+    public float timeStamp;
+
+    public static float expireTime = 0.2f; 
+
+    public ActionBuffer(float time,ActionType a) {
+        timeStamp = time;
+        action = a;
+    }
+
+    public bool VerifyValidity() {
+        if (timeStamp + expireTime >= Time.time) {
+            return true;
+        }
+        return false;
+    }
+
+
+    
+}
