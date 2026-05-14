@@ -8,7 +8,12 @@ using System.Collections.Generic;
 
 public class PlayerController : MonoBehaviour{
     //~------------------------------------------------------------------ Variable --------------------------------------------------------------------
+    [Header("--- Elements ---")]
+    [SerializeField] Transform sprite;
+    [SerializeField] float spriteRotationSpeed;
+    [SerializeField] float spriteRotationMaxAngle;
 
+    [Space(10)]
     [Header("--- Movements ---")]
     [SerializeField] private float movementSpeed;
 
@@ -39,7 +44,6 @@ public class PlayerController : MonoBehaviour{
 
     private List<ActionBuffer> InputBuffer =new List<ActionBuffer>();
     private Rigidbody2D playerRb;
-    private Transform sprite;
     private float baseGravity;
     private int moveDirection;
     private int jump;
@@ -64,7 +68,7 @@ public class PlayerController : MonoBehaviour{
 
     private void Awake(){
         playerRb = GetComponent<Rigidbody2D>();
-        sprite = transform.GetChild(0);
+        
 
         grab = transform.GetChild(1);
         grab.gameObject.SetActive(false);
@@ -82,24 +86,15 @@ public class PlayerController : MonoBehaviour{
             grabCooldownTimer -= Time.deltaTime;
 
         ActionBufferExecute();
+        SpriteRotation();
 
-        TextureInteraction();
 
-        // print("---------------------------");
-        // foreach(ActionBuffer a in InputBuffer) {
-        //     print(a.action + " :: "+ a.VerifyValidity() );
-        // }
-
-        // print(grabCooldownTimer + " |: grab | " + dashCooldownTimer + " |: dash"); //! prov
-        // print("dash : "+_isDashing);
-        // print("jump : "+_isJumping);
-        // print("grab : "+_isGrabbing);
-        
         
     }
     private void FixedUpdate(){
         ExecuteMove();
         ExecuteGrab();
+        sprite.GetChild(0).position = transform.position;
     }
 
     private void KeepAndApplyPlayerGravity(float newVal = 0f) {
@@ -170,7 +165,7 @@ public class PlayerController : MonoBehaviour{
     }
     private void ExecuteMove() {
         if (!_isDashing && !_isGrabbing)
-            playerRb.linearVelocity = new Vector2(moveDirection * movementSpeed, playerRb.linearVelocityY);
+            playerRb.linearVelocity = new Vector2(moveDirection * movementSpeed * LeftJoyVector.magnitude, playerRb.linearVelocityY);
     }
     //? ----------------------------------------------------------------------------------------- Jump 
     public void OnJump(InputAction.CallbackContext ctx) {
@@ -281,36 +276,22 @@ public class PlayerController : MonoBehaviour{
     }
 
 
-
-
     //* -------------------------------------------------------------------------------------------------- Texture Intertaction 
-    private float stabilizeAngle = 0;
-    private void TextureInteraction(){
-    //? ----------------------------------------------------------------------------------------- Sprite Rotation 
-
-        float angle = Tools.GetAngleByVector( playerRb.linearVelocity);
-        if (_grounded){
-            
-            stabilizeAngle = stabilizeAngle >= -10f && stabilizeAngle <= 10f ? 0f : stabilizeAngle;
-            float addDegrees = -Mathf.Sign(stabilizeAngle);
-
-            if ( moveDirection != 0 && Mathf.Sign(moveDirection) == Mathf.Sign(addDegrees)){
-                stabilizeAngle += addDegrees + moveDirection;
+    private void SpriteRotation() {
+        float angle = Tools.GetAngleByVector(playerRb.linearVelocity);
+        angle = Mathf.Clamp(angle, -spriteRotationMaxAngle, spriteRotationMaxAngle);
+        
+        Quaternion targetRotation = Quaternion.Euler(0,0,0) ;
+        if (!_grounded) {
+            if (playerRb.linearVelocityX != 0f) {
+                float sign = Mathf.Sign(playerRb.linearVelocityY);
+                targetRotation = Quaternion.Euler(0, 0, sign * angle );
             }
-            else{
-                stabilizeAngle += moveDirection != 0 ? -moveDirection : addDegrees;
-            }
-             
-            angle = stabilizeAngle;
         }
     
-        sprite.rotation =  Quaternion.Euler(0,0,angle);
-        stabilizeAngle = angle;
-        
-
-
+        sprite.rotation = Quaternion.RotateTowards(sprite.rotation, targetRotation, Time.deltaTime * spriteRotationSpeed);
+       
     }
-
     private void ResizedGrab() {
        
         BoxCollider2D grabBox = grab.GetChild(0).GetComponent<BoxCollider2D>();
