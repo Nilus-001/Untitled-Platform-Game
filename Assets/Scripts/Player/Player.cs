@@ -1,9 +1,13 @@
 using UnityEngine;
 
-public class Player : Entity{
+public class Player : Actor {
 
-    [SerializeField] private int energyMax;
-    private int energy;
+    [SerializeField] public int energyMax;
+    public int energy;
+
+    void Awake(){
+        GameManager.instance.RegisterPlayer(this);
+    }
 
     void Start() {
         RestoreEnergy();
@@ -14,14 +18,18 @@ public class Player : Entity{
         
     }
 
-    private bool UseEnergy(int e = 1) {
+    
+    public bool UseEnergy(int e = 1) {
         if (energy <= 0 || energy - e < 0) return false;
         energy -= e;
         return true;
     }
+    public bool HasEnergy(int e) {
+        return energy - e >= 0 ;
+    }
 
-    private void RestoreEnergy(int e = -1) {
-        if ( e == -1 || energy + e >= energyMax) {
+    public void RestoreEnergy(int e = -1) {
+        if ( e < 0 || energy + e >= energyMax) {
             energy = energyMax;
             return;
         } 

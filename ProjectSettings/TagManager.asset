@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Ground
   - CanBeGrab
+  - DamageBox
+  - HitBox
   layers:
   - Default
   - TransparentFX

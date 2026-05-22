@@ -28,7 +28,12 @@ public class LegController : MonoBehaviour{
     void Awake() {
         stepIndex = 0;
         globalConroller = GetComponentInParent<MainLegsController>();
-        //*---------------------------- Scale Adaptor ----------------------------
+       
+
+
+    }
+    void Start() {
+         //*---------------------------- Scale Adaptor ----------------------------
         float scale = PlayerSpriteMech.playerScale;
 
         stepDistance *= scale;
@@ -36,8 +41,6 @@ public class LegController : MonoBehaviour{
         rayCastHover *= scale;
         // legMovementSpeed *= scale;
         checkGroundDistance *= scale;
-
-
     }
 
     void Update(){

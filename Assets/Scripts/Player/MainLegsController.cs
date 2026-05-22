@@ -17,7 +17,8 @@ public class MainLegsController : MonoBehaviour{
     private int jumpIndex = 0;
     private float T;
 
-    void Awake() {
+    void Start() {
+         //*---------------------------- Scale Adaptor ----------------------------
         float scale = PlayerSpriteMech.playerScale;
         
         jumpRetractSpeed *= scale;

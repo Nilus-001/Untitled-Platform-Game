@@ -6,35 +6,72 @@ using Global;
 using System.Collections.Generic;
 
 
+
 public class PlayerController : MonoBehaviour{
     //~------------------------------------------------------------------ Variable --------------------------------------------------------------------
+    //* ------------------------------------------------------- ELEMENTS  
+    
     [Header("--- Elements ---")]
     [SerializeField] Transform sprite;
     [SerializeField] float spriteRotationSpeed;
     [SerializeField] float spriteRotationMaxAngle;
+    //* ------------------------------------------------------- MOVEMENTS  
 
     [Space(10)]
     [Header("--- Movements ---")]
-    [SerializeField] private float movementSpeed;
+    [SerializeField] private float moveSpeed;
+    [SerializeField] private float airAcceleration;
+    [SerializeField] private float airDeceleration;
+    [SerializeField] private float groundAcceleration;
+    [SerializeField] private float groundDeceleration;
+    //? -------------------------------------------------------- Launch
+    [Space(5)]
+    [Header("  > Launch")]
+    [SerializeField] private float launchAirControlFactor;
+    [SerializeField] private float apexThreshold;
+    [SerializeField] private float apexGravityMultiplier;
+    [SerializeField] private float apexAirControlBonus;
+
+
+    //? -------------------------------------------------------- Jump  
 
     [Space(5)]
     [Header("  > Jump")]
-    [SerializeField] private float jumpStrength;
+    [SerializeField] private float jumpHeight;
+    [SerializeField] private float timeToApex;
+    [SerializeField] private float fallGravityMultiplier;
+    
     [SerializeField] private float jumpDeceleration;
     [SerializeField] private int bonusJumpNumber;
 
+
+    //? -------------------------------------------------------- Dash  
+
     [Space(5)]
     [Header("  > Dash")]
+    [SerializeField] private int dashEnergyUsage;
     [SerializeField] private float dashStrength;
     [SerializeField] private float dashTime;
     [SerializeField] private float dashCooldown;
+    //? -------------------------------------------------------- Grab  
 
     [Space(5)]
     [Header("  > Grab")]
+    [SerializeField] private int grabEnergyUsage;
     [SerializeField] private float grabDistance;
     [SerializeField] private float garbStrength;
-    [SerializeField] private float garbExitStrength;
+    [SerializeField] private float grabPropultionStrength;
+    [SerializeField] private float grabPropultionDuration;
     [SerializeField] private float grabCooldown;
+    //? -------------------------------------------------------- Attack  
+
+    [Space(5)]
+    [Header("  > Attack")]
+    [SerializeField] private float attackDuration;
+    //Todo : Idea -> combo counter 
+    
+
+    //* ------------------------------------------------------- EXTRA ABILITIES  
 
     [Space(10)]
     [Header("--- Capacities ---")]
@@ -42,37 +79,71 @@ public class PlayerController : MonoBehaviour{
     [SerializeField] private bool UpDash;
     [SerializeField] private bool UpDashRecovery;
 
-    private List<ActionBuffer> InputBuffer =new List<ActionBuffer>();
-    private Rigidbody2D playerRb;
-    private float baseGravity;
-    private int moveDirection;
-    private int jump;
 
+
+    //* ------------------------------- ELEMENTS -------------------------------
+    private Player playerLogic;
+    private Rigidbody2D playerRb;
+    private Transform damageBox;
+    private Transform grab;
+    private Vector2 leftJoyVector;
+
+    //* ------------------------------- BASICS -------------------------------
+    private int direction;
+    private int permaDirection = 1;
+    private float gravity;
+    private float baseGravity;
+
+    //* ------------------------------- ACTIONS -------------------------------
+    private List<ActionBuffer> InputBuffer = new List<ActionBuffer>();
+    //? ------------------------------- Jump  
+    private int jump;
+    private float jumpForce;
+    //? ------------------------------- Dash  
     private int dash ;
     private float dashCooldownTimer;
-    
-    private Transform grab;
+    //? ------------------------------- Grab  
     private Vector2 grabTargetDirection;
     private Vector2 grabTargetPos;
     private float grabCooldownTimer;
-    private Vector2 LeftJoyVector;
+    //* ------------------------------- GESTIONS -------------------------------
 
-    //* -------------------------------------------------------------------------------------------------- Detection // Status 
+    //? ------------------------------- Energy  
+    private bool energyRecovery;
+
+    //? ------------------------------- Launch  
+    private float launchTimer;
+    private float launchTime;
+    public float ApexBlend;
+    
+
+    //* ------------------------------- STATES -------------------------------
     private bool _isDashing;
-    private bool _grounded;
+    private bool _isGrounded;
     private bool _isJumping;
     private bool _isGrabbing;
-
+    private bool _isAttacking;
+    private bool _isLaunch;
     
     //~----------------------------------------------------------------------------------------------------------- Function 
-
+    //? ----------------------------------------------------------------------------------------- Execute 
     private void Awake(){
         playerRb = GetComponent<Rigidbody2D>();
-        
+        playerLogic = GetComponent<Player>();
 
-        grab = transform.GetChild(1);
+        grab = transform.Find("GrabContainer"); //? Name Important
         grab.gameObject.SetActive(false);
         ResizedGrab();
+
+        damageBox = transform.Find("DamageBox"); //? Name Important
+        damageBox.gameObject.SetActive(false);
+
+        //& -------- SetUp --------
+        playerRb.gravityScale = 0f;
+
+        gravity   = 2f * jumpHeight / (timeToApex * timeToApex);
+        jumpForce = gravity * timeToApex;
+
     }
     private void Start(){
         dashCooldownTimer = 0;
@@ -84,29 +155,72 @@ public class PlayerController : MonoBehaviour{
             dashCooldownTimer -= Time.deltaTime;
         if (grabCooldownTimer > 0)
             grabCooldownTimer -= Time.deltaTime;
+        LaunchTimer();
+
+
+        if (energyRecovery && playerLogic.energy < playerLogic.energyMax) {
+            playerLogic.RestoreEnergy(1);
+        }
+        else {
+            energyRecovery = false;
+        }
 
         ActionBufferExecute();
         SpriteRotation();
 
 
+        //? Jump Check :
+        if (playerRb.linearVelocity.y <= 0f)
+            _isJumping = false;
+
         
     }
     private void FixedUpdate(){
-        ExecuteMove();
+        ApplyGravity();
+        ExecuteHorizontalMove();
+
         ExecuteGrab();
         sprite.GetChild(0).position = transform.position;
     }
+    
+    //? ----------------------------------------------------------------------------------------- Gravity
+    
+    //? ----------------------------------------------------------------------------------------- Propulsion
+    private void Launch(Vector2 direction,float force,float duration) {
+        if (_isLaunch) return;
 
-    private void KeepAndApplyPlayerGravity(float newVal = 0f) {
-        float gravity = playerRb.gravityScale;
-        if (gravity != 0) {
-            baseGravity = gravity;
-            playerRb.gravityScale = newVal;
+        playerRb.linearVelocity  = Vector2.zero;
+        playerRb.linearVelocity = direction * force;
+
+        launchTime = duration;
+        launchTimer = launchTime;
+
+        _isLaunch = true;
+        _isJumping = false; //? jump check
+
+    }
+    private void LaunchTimer() {
+        if (launchTimer > 0) {
+            launchTimer -= Time.deltaTime;
+        }
+        else {
+            _isLaunch = false;
+        }
+
+
+        if (_isLaunch && !_isGrounded){
+            float absVY = Mathf.Abs(playerRb.linearVelocityY);
+            ApexBlend = Mathf.InverseLerp(apexThreshold, 0f, absVY);
+            //? --------------------------------
+
+            
+        }
+        else{
+            ApexBlend = 0f;
         }
     }
-    private void RestorePlayerGravity() {
-        playerRb.gravityScale = baseGravity;
-    }
+   
+
     //* -------------------------------------------------------------------------------------------------- Action Buffer
     private void ActionBufferExecute() {
         if (InputBuffer.Count == 0) return;
@@ -123,7 +237,7 @@ public class PlayerController : MonoBehaviour{
     //? ----------------------------------------------------------------------------------------- Action Condition 
     private void ExecuteBufferAction(ActionBuffer action) {
         if (action.action == ActionBuffer.ActionType.Jump) {
-            if (jump > 0 || _grounded) {
+            if (jump > 0 || _isGrounded ) {
                 Jump();
                 InputBuffer.Remove(action);
                 return;
@@ -131,42 +245,107 @@ public class PlayerController : MonoBehaviour{
         }
 
         if (action.action == ActionBuffer.ActionType.Dash) {
-            if (dash > 0 && dashCooldownTimer <= 0) {
+            if (dash > 0 && dashCooldownTimer <= 0 && (_isGrounded || playerLogic.UseEnergy(dashEnergyUsage))) {
                 Dash().Forget();
                 InputBuffer.Remove(action);
                 return;
             }
         }
 
-        if (action.action == ActionBuffer.ActionType.Grab) {
-            if (grabCooldownTimer <= 0) {
+        if (action.action == ActionBuffer.ActionType.Grab && playerLogic.HasEnergy(grabEnergyUsage)) {
+            if (grabCooldownTimer <= 0 || !_isAttacking) {
                 TryGrab().Forget();
                 InputBuffer.Remove(action);
                 return;
             }
         }
+
+        if (action.action == ActionBuffer.ActionType.Attack) {
+            if (!_isDashing || !_isGrabbing || !_isAttacking) {
+                Attack().Forget();
+                InputBuffer.Remove(action);
+                return;
+            }
+        }
+        
+
         
     }
 
 
     //* -------------------------------------------------------------------------------------------------- Movement 
-    //? ----------------------------------------------------------------------------------------- Direction 
-    public void OnMove(InputAction.CallbackContext ctx) {
-
-        
-        if (ctx.canceled) {
-            moveDirection = 0;
+    //? ----------------------------------------------------------------------------------------- Gravity // Move
+    private void ApplyGravity() {
+        if (_isGrounded && playerRb.linearVelocityY <= 0) {
+            //? On floor
             return;
         }
-        if (_isDashing) return;
+        float gravMultiplier = 1f;
+        // if(_isLaunch && ApexBlend > 0f) {
+        //     float baseMultiplier = playerRb.linearVelocityY < 0f ? fallGravityMultiplier : 1f;
+        //     gravMultiplier = Mathf.Lerp(baseMultiplier, apexGravityMultiplier, ApexBlend);
+        // }
+        if (playerRb.linearVelocityY < 0) {
+            //? Down
+            gravMultiplier = fallGravityMultiplier;
+        }
+        else if (playerRb.linearVelocityY > 0 && !_isJumping) {
+            //? Up (out Jump)
+            gravMultiplier = fallGravityMultiplier;
+        }
+        playerRb.AddForce(Vector2.down * gravity * gravMultiplier, ForceMode2D.Force);
+    }
+    private void ExecuteHorizontalMove() {
+        if (_isDashing || _isGrabbing) return;
 
-        LeftJoyVector = ctx.ReadValue<Vector2>();
-        moveDirection = (LeftJoyVector.x > 0) ? 1 : (LeftJoyVector.x < 0) ? -1 : 0;
+        float Xspeed = direction * moveSpeed * leftJoyVector.magnitude;
+        float currentXspeed = playerRb.linearVelocityX;
+
+        float acceleration;
+        if (_isLaunch) {
+            if (Mathf.Abs(direction) > 0.01f) {
+                float apexBoost = Mathf.Lerp(1f, apexAirControlBonus, ApexBlend);
+                acceleration = airAcceleration * launchAirControlFactor * apexBoost;
+            }
+                
+            else
+                acceleration = 0f;
+        }
+        else if (_isGrounded) {
+            acceleration = Mathf.Abs(direction) > 0.01f ? groundAcceleration : groundDeceleration;
+        }
+        else {
+            acceleration = Mathf.Abs(direction) > 0.01f ? airAcceleration : airDeceleration;
+        }
+        float speedDelta = acceleration * Time.deltaTime;
+        float movement = Mathf.Clamp(Xspeed-currentXspeed,-speedDelta,speedDelta);
+
+        playerRb.AddForce(new Vector2(movement,0f),ForceMode2D.Impulse);
+       
     }
-    private void ExecuteMove() {
-        if (!_isDashing && !_isGrabbing)
-            playerRb.linearVelocity = new Vector2(moveDirection * movementSpeed * LeftJoyVector.magnitude, playerRb.linearVelocityY);
+
+    //? ----------------------------------------------------------------------------------------- Direction 
+    public void OnMove(InputAction.CallbackContext ctx) {
+        leftJoyVector = ctx.ReadValue<Vector2>();
+
+        if (Mathf.Abs(leftJoyVector.x) > 0.05f) {
+            permaDirection = (leftJoyVector.x > 0) ? 1 : -1;
+        }
+
+        if (_isDashing) return;
+        
+        direction = permaDirection;
+
+        if (ctx.canceled) {
+            leftJoyVector = Vector2.zero;
+            direction = 0;
+            return;
+        }
+        
+
+   
     }
+    
     //? ----------------------------------------------------------------------------------------- Jump 
     public void OnJump(InputAction.CallbackContext ctx) {
         if (_isDashing && !UpDash ) return;
@@ -175,23 +354,26 @@ public class PlayerController : MonoBehaviour{
             InputBuffer.Add(new ActionBuffer(Time.time,ActionBuffer.ActionType.Jump));
         }
 
-        if (ctx.canceled && playerRb.linearVelocityY > 5f){
+        if (ctx.canceled && playerRb.linearVelocityY > 0f){
             playerRb.linearVelocityY *=  jumpDeceleration;
             _isJumping = false;
         }
         
     }
     private void Jump(){
-        _isJumping = true;
-        if (!_grounded) {
+        
+        
+        playerRb.linearVelocity = new Vector2(playerRb.linearVelocityX,0f);
+        playerRb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+        
+        if (!_isGrounded) {
             jump -= 1;
             if (_isDashing && _isJumping && UpDashRecovery) jump += 1; //& UPDASH RECOVERY
         }
-        
-        playerRb.linearVelocity = new Vector2(playerRb.linearVelocityX , jumpStrength);
-        
+        _isJumping = true;
         
     }
+    
     //? ----------------------------------------------------------------------------------------- Dash 
     public void OnDash(InputAction.CallbackContext ctx) {
         if (_isDashing ) return;
@@ -202,15 +384,13 @@ public class PlayerController : MonoBehaviour{
     private async UniTaskVoid Dash(){
         _isJumping = false;
         _isDashing = true;
-        KeepAndApplyPlayerGravity(0f);
-
+        
         playerRb.linearVelocity = Vector2.zero;
-        playerRb.linearVelocityX = moveDirection * dashStrength ;
+        playerRb.linearVelocityX = direction * dashStrength ;
          
         await UniTask.WaitForSeconds(dashTime);
 
-        RestorePlayerGravity();
-        if(!_grounded) dash -= 1;
+        if(!_isGrounded) dash -= 1;
         
         dashCooldownTimer = dashCooldown;   
         _isDashing = false;
@@ -227,7 +407,7 @@ public class PlayerController : MonoBehaviour{
     private async UniTaskVoid TryGrab() {
         if (grabCooldownTimer > 0) return;
 
-        float a = Tools.GetAngleByVector(LeftJoyVector);
+        float a = Tools.GetAngleByVector(leftJoyVector);
         grab.rotation =  Quaternion.Euler(0,0,a);
         grab.gameObject.SetActive(true);
 
@@ -238,8 +418,9 @@ public class PlayerController : MonoBehaviour{
             grabCooldownTimer = grabCooldown;
 
     }
-    
     public void Grab(Collider2D collider) {
+
+        playerLogic.UseEnergy(grabEnergyUsage);
 
         grabTargetPos = collider.transform.position;
         grabTargetDirection = (grabTargetPos - playerRb.position).normalized;
@@ -249,18 +430,14 @@ public class PlayerController : MonoBehaviour{
         _isGrabbing = true;
         grab.gameObject.SetActive(false);
         
-        
-
-
     }
-
     private void ExecuteGrab() {
         if (!_isGrabbing ) return;
         
-        Vector2 directionToTarget =( grabTargetPos - playerRb.position).normalized;
+        Vector2 directionToTarget = (grabTargetPos - playerRb.position).normalized;
 
         if (Vector2.Dot(directionToTarget,grabTargetDirection) < 0) {
-            playerRb.linearVelocity = grabTargetDirection * garbExitStrength;
+            Launch(grabTargetDirection ,grabPropultionStrength,grabPropultionDuration) ;
             _isGrabbing = false;
             grabTargetDirection = Vector2.zero;
             grabTargetPos = Vector2.zero;
@@ -274,6 +451,31 @@ public class PlayerController : MonoBehaviour{
         playerRb.linearVelocity = grabTargetDirection * garbStrength;
         
     }
+    
+    //? ----------------------------------------------------------------------------------------- Damage
+    public void OnAttack(InputAction.CallbackContext ctx) {
+        if (ctx.started) {
+            InputBuffer.Add(new ActionBuffer(Time.time,ActionBuffer.ActionType.Attack));
+        }
+    }
+    private async UniTaskVoid Attack() {
+
+        _isAttacking = true;
+        damageBox.gameObject.SetActive(true);
+
+        Vector3 scale = damageBox.localScale;
+        damageBox.localScale = new Vector3(Mathf.Abs(scale.x) * permaDirection ,scale.y,scale.z);
+
+
+        await UniTask.WaitForSeconds(attackDuration);
+        _isAttacking = false;
+        damageBox.gameObject.SetActive(false);
+    }
+    public void Damage(Entity e) {
+        //Todo :  Extra Animation
+        playerLogic.DealDamage(e);
+    }
+
 
 
     //* -------------------------------------------------------------------------------------------------- Texture Intertaction 
@@ -282,7 +484,7 @@ public class PlayerController : MonoBehaviour{
         angle = Mathf.Clamp(angle, -spriteRotationMaxAngle, spriteRotationMaxAngle);
         
         Quaternion targetRotation = Quaternion.Euler(0,0,0) ;
-        if (!_grounded) {
+        if (!_isGrounded) {
             if (playerRb.linearVelocityX != 0f) {
                 float sign = Mathf.Sign(playerRb.linearVelocityY);
                 targetRotation = Quaternion.Euler(0, 0, sign * angle );
@@ -304,19 +506,25 @@ public class PlayerController : MonoBehaviour{
     //* -------------------------------------------------------------------------------------------------- Ground Detection 
     private void OnCollisionEnter2D(Collision2D collision){
         if (collision.gameObject.CompareTag("Ground")){
-            _grounded = true;
+            _isGrounded = true;
             GroundRecovery();
         }
     }
     void OnCollisionExit2D(Collision2D collision){
          if (collision.gameObject.CompareTag("Ground")){
-            _grounded = false;
+            _isGrounded = false;
+            GroundRecoveryCancel();
         }
     }
     private void GroundRecovery() {
         jump = bonusJumpNumber;
         dash = 1;
         _isJumping = false;
+        energyRecovery = true;
+        _isLaunch = false;
+    }
+    private void GroundRecoveryCancel() {
+        energyRecovery = false;
     }
 
 }
@@ -328,6 +536,7 @@ public class ActionBuffer {
         Jump,
         Dash,
         Grab,
+        Attack,
     }
     public ActionType action;
     public float timeStamp;
