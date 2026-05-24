@@ -8,20 +8,28 @@ public class Entity : MonoBehaviour {
     [SerializeField] private float invicibilityTime;
     [SerializeField] private int energyRelease;
     public int hp;
-    private float invicibilityTimer;
+    protected float invicibilityTimer;
+    public bool _isInvincible = false;
 
     //~----------------------------------------------------------------------------------------------------------- Function 
-    private void Update() {
-        if (invicibilityTimer > 0) invicibilityTimer -= Time.deltaTime;
+    protected void Update() {
+        
+        if (invicibilityTimer > 0){
+            invicibilityTimer -= Time.deltaTime;
+            _isInvincible = true;
+        }
+        else {
+            _isInvincible = false;
+        }
     }
-    void Start(){
+    protected void Start(){
         hp = maxHp;
         if (maxHp <= 0){hp = 1;}
     }
 
 
-    public void TakeDamage(IDamageSource attacker ,int damage = 1){
-        if (invicibilityTimer > 0) return;
+    public virtual bool TakeDamage(IDamageSource attacker ,int damage = 1){
+        if (_isInvincible) return false;
         invicibilityTimer = invicibilityTime;
         
         if (maxHp > 0){
@@ -30,12 +38,15 @@ public class Entity : MonoBehaviour {
 
         if (attacker is Player player) {
             player.RestoreEnergy(energyRelease);
+            
         }
 
         if (hp <= 0){
             Kill();
         }
         print(name + "take " + damage + "damage ("+ hp+" remaining)"); //! prov
+        
+        return true;
     }
 
     public void Kill(){

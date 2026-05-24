@@ -2,5 +2,5 @@ using UnityEngine;
 
 public interface IDamageSource {
 
-    public void DealDamage(Entity target, int damage = 0);
+    public bool DealDamage(Entity target, int damage = 0);
 }

@@ -400,11 +400,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1047530691322528448, guid: 048671c9c55f793419117d504c62c176, type: 3}
       propertyPath: maxHp
-      value: 3
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 1047530691322528448, guid: 048671c9c55f793419117d504c62c176, type: 3}
       propertyPath: energyRelease
       value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 1047530691322528448, guid: 048671c9c55f793419117d504c62c176, type: 3}
+      propertyPath: invicibilityTime
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6091950744860700030, guid: 048671c9c55f793419117d504c62c176, type: 3}
       propertyPath: m_Name

@@ -9,14 +9,13 @@ public class Player : Actor {
         GameManager.instance.RegisterPlayer(this);
     }
 
-    void Start() {
+    protected new void Start() {
+        base.Start();
+        
         RestoreEnergy();
     }
 
     // Update is called once per frame
-    void Update(){
-        
-    }
 
     
     public bool UseEnergy(int e = 1) {

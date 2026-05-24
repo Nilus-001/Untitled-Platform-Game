@@ -16,6 +16,7 @@ public class LegController : MonoBehaviour{
     private float delayTimer = 0f;
 
     private bool _isgrounded;
+    private bool _isLegGrounded;
     private int stepIndex;
     private Vector2 startPoint;
     private Vector2 liftPoint;
@@ -51,17 +52,20 @@ public class LegController : MonoBehaviour{
             return;
         }
         
+        
 
         if (globalConroller._isgrounded ) {
 
             CheckGround();
             targetPoint = transform.position;
 
-            if (Vector2.Distance(transform.position,linkedLegTarget.position) > stepDistance && stepIndex == 0 && oppositeLeg._isgrounded) {
+            bool isFar = Vector2.Distance(transform.position,linkedLegTarget.position) > stepDistance;
+
+           if  ( (isFar || !_isLegGrounded) && stepIndex == 0 && oppositeLeg._isgrounded) {
                 startPoint = linkedLegTarget.position;
                 liftPoint = Vector2.Lerp(startPoint,targetPoint,1f/3f);
                 liftPoint.y += liftDistance;
-                stepIndex = 1;
+                stepIndex = 1; 
                 T = 0f;
             }
             if (stepIndex == 1) {
@@ -91,8 +95,15 @@ public class LegController : MonoBehaviour{
             v.y += rayCastHover;
             transform.position = ray.point;
         }
-        else {
-            
+
+        RaycastHit2D rayLeg = Physics2D.Raycast(linkedLegTarget.position,Vector2.down,checkGroundDistance,groundLayer);
+        if (rayLeg.collider != null) {
+            Vector2 v = rayLeg.point;
+
+            _isLegGrounded = true;
+            if (Vector2.Distance(v,linkedLegTarget.position) > 0.1f) {
+                _isLegGrounded = false;  
+            }
         }
     }
 

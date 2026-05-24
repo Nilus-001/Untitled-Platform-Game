@@ -53,6 +53,7 @@ MonoBehaviour:
   maxHp: 3
   invicibilityTime: 1
   energyRelease: 0
+  hp: 0
   baseDamage: 1
   energyMax: 60
   energy: 0
@@ -96,6 +97,7 @@ MonoBehaviour:
   grabPropultionDuration: 0.6
   grabCooldown: 1
   attackDuration: 0.2
+  attackCooldown: 0.5
   UpDash: 1
   UpDashRecovery: 0
   ApexBlend: 0
