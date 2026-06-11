@@ -8,7 +8,7 @@ public class PlayerDamageBox : MonoBehaviour
     }
 
     private void OnTriggerEnter2D(Collider2D other) {
-        if (other.TryGetComponent<Entity>(out Entity entity)) {
+        if (other.TryGetComponent(out Entity entity)) {
             playerC.Damage(entity);
         }
     }

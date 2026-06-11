@@ -54,6 +54,7 @@ MonoBehaviour:
   invicibilityTime: 1
   energyRelease: 0
   hp: 0
+  _isInvincible: 0
   baseDamage: 1
   energyMax: 60
   energy: 0
@@ -81,7 +82,7 @@ MonoBehaviour:
   apexThreshold: 3
   apexGravityMultiplier: 0.2
   apexAirControlBonus: 1.8
-  jumpHeight: 2
+  jumpHeight: 2.5
   timeToApex: 0.42
   fallGravityMultiplier: 1.1
   jumpDeceleration: 0.1
@@ -89,17 +90,19 @@ MonoBehaviour:
   dashEnergyUsage: 20
   dashStrength: 15
   dashTime: 0.2
-  dashCooldown: 1
+  dashCooldown: 0.5
   grabEnergyUsage: 40
   grabDistance: 50
   garbStrength: 12
   grabPropultionStrength: 12
   grabPropultionDuration: 0.6
   grabCooldown: 1
-  attackDuration: 0.2
+  attackDuration: 0.3
   attackCooldown: 0.5
   UpDash: 1
   UpDashRecovery: 0
+  jump: 0
+  dash: 0
   ApexBlend: 0
 --- !u!50 &4364752791948576071
 Rigidbody2D:

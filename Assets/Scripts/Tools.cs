@@ -25,3 +25,8 @@ namespace Global {
         }
     }
 }
+
+
+// Sur ton Body, un script BodyAnimator.cs séparé
+
+

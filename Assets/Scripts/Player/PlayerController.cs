@@ -8,9 +8,10 @@ using System.Collections.Generic;
 
 
 public class PlayerController : MonoBehaviour{
+
     //~------------------------------------------------------------------ Variable --------------------------------------------------------------------
     //* ------------------------------------------------------- ELEMENTS  
-    
+
     [Header("--- Elements ---")]
     [SerializeField] Transform sprite;
     [SerializeField] float spriteRotationSpeed;
@@ -89,6 +90,7 @@ public class PlayerController : MonoBehaviour{
     private Transform damageBox;
     private Transform grab;
     private Vector2 leftJoyVector;
+    private Animator spriteLegAnimator;
 
     //* ------------------------------- BASICS -------------------------------
     private int direction;
@@ -137,6 +139,7 @@ public class PlayerController : MonoBehaviour{
     private void Awake(){
         playerRb = GetComponent<Rigidbody2D>();
         playerLogic = GetComponent<Player>();
+        spriteLegAnimator = sprite.GetComponentInChildren<Animator>();
 
         grab = transform.Find("GrabContainer"); //? Name Important
         grab.gameObject.SetActive(false);
@@ -158,6 +161,8 @@ public class PlayerController : MonoBehaviour{
     private void Start(){
         dashCooldownTimer = 0;
         grabCooldownTimer = 0;
+        attackCooldownTimer = 0;
+
         jump = bonusJumpNumber;
     }
     private void Update(){
@@ -503,6 +508,8 @@ public class PlayerController : MonoBehaviour{
         
         
         
+        
+        spriteLegAnimator.SetBool("isAttacking", true);
         //~ ---------------------------------------------------------------
         await UniTask.WaitForSeconds(attackDuration);
 
@@ -510,6 +517,8 @@ public class PlayerController : MonoBehaviour{
         freezeMove = false;
         _isAttacking = false;
         damageBox.gameObject.SetActive(false);
+        spriteLegAnimator.SetBool("isAttacking", false);
+
 
         attackCooldownTimer = attackCooldown;
 
